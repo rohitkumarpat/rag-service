@@ -7,7 +7,8 @@ from app import db
 from app.config import RAG_API_KEY
 from app.ingest import ingest
 from app.loaders import load_pdf, load_txt, load_url
-from app.schemas import TextIn, UrlIn
+from app.schemas import SearchIn, TextIn, UrlIn
+from app.retriever import retrieve
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 
@@ -69,3 +70,9 @@ def ingest_file(clerk_id: str = Form(...), file: UploadFile = File(...)):
         return ingest(clerk_id, file.filename, "file", file.filename, text)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    
+
+@app.post("/search", dependencies=[Depends(require_key)])
+def search(body: SearchIn):
+    return {"results": retrieve(body.clerk_id, body.query, body.k)}
