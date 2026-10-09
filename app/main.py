@@ -89,3 +89,38 @@ def generate_route(body: GenerateIn):
         )
     except Exception:
         raise HTTPException(status_code=502, detail="Generation failed, please try again")
+
+
+
+@app.get("/knowledge", dependencies=[Depends(require_key)])
+def list_docs(clerk_id: str):
+    with db.get_pool().connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT d.id, d.title, d.source_type, d.created_at,
+                   (SELECT count(*) FROM knowledge_chunks c WHERE c.doc_id = d.id)
+            FROM knowledge_docs d
+            WHERE d.clerk_id = %s
+            ORDER BY d.created_at DESC
+            """,
+            (clerk_id,),
+        ).fetchall()
+    return {
+        "docs": [
+            {"id": r[0], "title": r[1], "source_type": r[2],
+             "created_at": r[3].isoformat(), "chunks": r[4]}
+            for r in rows
+        ]
+    }
+
+
+@app.delete("/knowledge/{doc_id}", dependencies=[Depends(require_key)])
+def delete_doc(doc_id: int, clerk_id: str):
+    with db.get_pool().connection() as conn:
+        res = conn.execute(
+            "DELETE FROM knowledge_docs WHERE id = %s AND clerk_id = %s",
+            (doc_id, clerk_id),
+        )
+        if res.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
+    return {"deleted": doc_id}
