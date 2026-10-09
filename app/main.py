@@ -9,6 +9,8 @@ from app.ingest import ingest
 from app.loaders import load_pdf, load_txt, load_url
 from app.schemas import SearchIn, TextIn, UrlIn
 from app.retriever import retrieve
+from app.generator import generate
+from app.schemas import GenerateIn, SearchIn, TextIn, UrlIn
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 
@@ -76,3 +78,14 @@ def ingest_file(clerk_id: str = Form(...), file: UploadFile = File(...)):
 @app.post("/search", dependencies=[Depends(require_key)])
 def search(body: SearchIn):
     return {"results": retrieve(body.clerk_id, body.query, body.k)}
+
+
+@app.post("/generate", dependencies=[Depends(require_key)])
+def generate_route(body: GenerateIn):
+    try:
+        return generate(
+            body.clerk_id, body.template_prompt, body.user_input,
+            body.use_knowledge, body.cite, body.k,
+        )
+    except Exception:
+        raise HTTPException(status_code=502, detail="Generation failed, please try again")
